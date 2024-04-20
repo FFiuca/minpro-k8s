@@ -100,7 +100,7 @@ spec:
     storage: 1Gi
   hostPath:
     path: /var/lib/mysql
-  volumeMode: Filesystem
+  # volumeMode: Filesystem
 # persistentVolumeReclaimPolicy: Recycle
 # storageClassName: slow
 
@@ -234,18 +234,18 @@ spec:
       containers:
       - name: mycurl
         image: ffiuca/mycurl
-      - name: django-mysql-container
-        image: mysql
-        ports:
-        - containerPort: 3306
-        envFrom:
-        - configMapRef:
-            name: django-mysql-config-map
-        - secretRef:
-            name: django-mysql-secret
-        volumeMounts:
-        - mountPath: /var/lib/mysql
-          name: volume-mysql
+        # - name: django-mysql-container
+      #   image: mysql
+      #   ports:
+      #   - containerPort: 3306
+      #   envFrom:
+      #   - configMapRef:
+      #       name: django-mysql-config-map
+      #   - secretRef:
+      #       name: django-mysql-secret
+      #   volumeMounts:
+      #   - mountPath: /var/lib/mysql
+      #     name: volume-mysql
       - name: django-redis-container
         image: redis:7.2.4-alpine
         ports:
@@ -303,43 +303,43 @@ spec:
     targetPort: 80
     nodePort: 30004
 
-# ---
-# apiVersion: apps/v1
-# kind: StatefulSet
-# metadata:
-#   name: django-app-statefulset
-#   namespace: django
-# spec:
-#   selector:
-#     matchLabels:
-#       app: django-app
-#   serviceName: django-app-service
-#   replicas: 2
-#   template:
-#     metadata:
-#       labels:
-#         app: django-app
-#     spec:
-#       containers:
-#       - name: django-mysql-container
-#         image: mysql
-#         ports:
-#         - containerPort: 3306
-#         envFrom:
-#         - configMapRef:
-#             name: django-mysql-config-map
-#         - secretRef:
-#             name: django-mysql-secret
-#         volumeMounts:
-#         - mountPath: /var/lib/mysql
-#           name: django-mysql-pv2-claim
-#   volumeClaimTemplates:
-#   - metadata:
-#       name: django-mysql-pv2-claim
-#     spec:
-#       volumeMode: Filesystem
-#       accessModes: ["ReadWriteMany"]
-#       resources:
-#         requests:
-#           storage: 250Mi
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: django-app-statefulset
+  namespace: django
+spec:
+  selector:
+    matchLabels:
+      app: django-app
+  serviceName: django-app-service
+  replicas: 2
+  template:
+    metadata:
+      labels:
+        app: django-app
+    spec:
+      containers:
+      - name: django-mysql-container
+        image: mysql
+        ports:
+        - containerPort: 3306
+        envFrom:
+        - configMapRef:
+            name: django-mysql-config-map
+        - secretRef:
+            name: django-mysql-secret
+        volumeMounts:
+        - mountPath: /var/lib/mysql
+          name: django-mysql-pv2-claim
+  volumeClaimTemplates:
+  - metadata:
+      name: django-mysql-pv2-claim
+    spec:
+      volumeMode: Filesystem
+      accessModes: ["ReadWriteMany"]
+      resources:
+        requests:
+          storage: 250Mi
 

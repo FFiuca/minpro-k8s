@@ -1,0 +1,2 @@
+- when spaming refresh in firts deploy (some pod has error), sometime got return error and success, it indicates browser hit different pod
+-

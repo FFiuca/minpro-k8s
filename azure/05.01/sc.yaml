@@ -1,0 +1,11 @@
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: managed-premium-retain-sc
+provisioner: kubernetes.io/azure-disk
+reclaimPolicy: Retain # [Retain, Delete] when you delete your manifest. the sc will not deleted till you do manually
+volumeBindingMode: WaitForFirstConsumer # [WaitForFirstConsumer, Immediete] waiting is wait to first pod connect to your pvc
+allowVolumeExpansion: true
+parameters:
+  storageaccounttype: Premium_LRS
+  kind: managed

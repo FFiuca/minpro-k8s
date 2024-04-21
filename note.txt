@@ -9,3 +9,6 @@ How to add azure context and connect to your account :
 5. az account set --subscription c11b5f1e-a20b-4b57-b31e-3d91076a07b1
 6. az aks get-credentials --resource-group keyvault-demo --name keyvault-demo-cluster --overwrite-existing
 7. change your context docker to your aks name and kubectl command will use az aks
+
+- it is look like database just use one statefulset and web apps connect to it. because when use more one replicas with same pvc, causing crash and locking file ibdata each pods look scrambfa-pull-left. By trial of django1 and django2 is not running well.
+

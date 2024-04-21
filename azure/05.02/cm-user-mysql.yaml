@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: usermanagement-dbcreation-script
+data:
+  # by default, mysql image will discover sql file to execute in /docker-entrypoint-initdb.d folder
+  mysql_usermgmt.sql: |-
+    DROP DATABASE IF EXISTS webappdb;
+    CREATE DATABASE webappdb;
+

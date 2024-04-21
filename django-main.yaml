@@ -62,7 +62,7 @@ data:
   DB_USERNAME: admin
   # DB_PASSWORD: root
   DB_DATABASE: django_ecommerce
-  REDIS_HOST: django-app-service.django.svc.cluster.local
+  REDIS_HOST: django-mysql-service.django.svc.cluster.local
   REDIS_PORT: '6379'
   EMAIL_HOST: 'smtp.gmail.com'
   EMAIL_PORT: '587'
@@ -218,9 +218,9 @@ spec:
       # - name: volume-mysql
       #   persistentVolumeClaim:
       #     claimName: django-mysql-pv-claim
-      - name: volume-redis
-        persistentVolumeClaim:
-          claimName: django-redis-pv-claim
+      # - name: volume-redis
+      #   persistentVolumeClaim:
+      #     claimName: django-redis-pv-claim
       - name: volume-django
         persistentVolumeClaim:
           claimName: django-app-pv-claim
@@ -229,16 +229,16 @@ spec:
       containers:
       - name: mycurl
         image: ffiuca/mycurl
-      - name: django-redis-container
-        image: redis:7.2.4-alpine
-        ports:
-        - containerPort: 6379
-        envFrom:
-        - configMapRef:
-            name: django-redis-config-map
-        volumeMounts:
-        - mountPath: /usr/local/etc/redis
-          name: volume-redis
+        # - name: django-redis-container
+      #   image: redis:7.2.4-alpine
+      #   ports:
+      #   - containerPort: 6379
+      #   envFrom:
+      #   - configMapRef:
+      #       name: django-redis-config-map
+      #   volumeMounts:
+      #   - mountPath: /usr/local/etc/redis
+      #     name: volume-redis
       - name: nginx
         image: nginx:stable-alpine3.17-slim
         ports:
@@ -269,9 +269,14 @@ spec:
   selector:
     app: django-mysql
   ports:
-  - port: 3306
+  - name: port-mysql
+    port: 3306
     targetPort: 3306
     # nodePort: 30001
+  - name: port-redis
+    port: 6379
+    targetPort: 6379
+    # nodePort: 30002
 
 
 ---
@@ -306,9 +311,19 @@ spec:
         volumeMounts:
         - mountPath: /var/lib/mysql
           name: django-mysql-pv-claim
+      - name: django-redis-container
+        image: redis:7.2.4-alpine
+        ports:
+        - containerPort: 6379
+        envFrom:
+        - configMapRef:
+            name: django-redis-config-map
+        volumeMounts:
+        - mountPath: /usr/local/etc/redis
+          name: django-redis-pv-claim
   volumeClaimTemplates:
   - metadata:
-      name: django-mysql-pv-claim
+      name: django-mysql-pv-claim # if not exist will create automatically
     spec:
       accessModes: ["ReadWriteOnce"]
       # storageClassName: django-sc # use when use storage class
@@ -316,6 +331,15 @@ spec:
       resources:
         requests:
           storage: 1Gi
+  - metadata:
+      name: django-redis-pv-claim
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      # storageClassName: django-sc # use when use storage class
+      volumeMode: Filesystem
+      resources:
+        requests:
+          storage: 250Mi
 
 ---
 apiVersion: v1
@@ -330,14 +354,6 @@ spec:
   selector:
     app: django-app
   ports:
-  # - name: port-mysql
-  #   port: 3306
-  #   targetPort: 3306
-  #   nodePort: 30001
-  - name: port-redis
-    port: 6379
-    targetPort: 6379
-    nodePort: 30002
   - name: port-app
     port: 8001
     targetPort: 8001
@@ -346,6 +362,14 @@ spec:
     port: 80
     targetPort: 80
     nodePort: 30004
+  # - name: port-mysql
+#   port: 3306
+#   targetPort: 3306
+#   nodePort: 30001
+# - name: port-redis
+#   port: 6379
+#   targetPort: 6379
+#   nodePort: 30002
 
 # ---
 # apiVersion: apps/v1

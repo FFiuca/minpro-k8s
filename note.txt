@@ -11,4 +11,7 @@ How to add azure context and connect to your account :
 7. change your context docker to your aks name and kubectl command will use az aks
 
 - it is look like database just use one statefulset and web apps connect to it. because when use more one replicas with same pvc, causing crash and locking file ibdata each pods look scrambfa-pull-left. By trial of django1 and django2 is not running well.
+- when use multiple redis container. when store keys, it's not distribute completly. so for now use 1 redis instead multi
+- and because master/slave logic is at application layer (need custom logic). use your cloud provider to achieve powefull apps. # https://chat.openai.com/c/35512008-66e9-4c02-bb6e-20fe3e15449d
 
+- storageclass in local must enable csi-hostpath-driver minikube addons

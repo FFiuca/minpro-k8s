@@ -4,8 +4,8 @@ metadata:
   name: managed-premium-retain-sc
 provisioner: kubernetes.io/azure-disk
 reclaimPolicy: Retain
-volumeBindingMode: Immediate
+volumeBindingMode: WaitForFirstConsumer
 allowVolumeExpansion: true
 parameters:
-  storageaccounttype: PREMIUM_LRS
+  storageaccounttype: Premium_LRS
   kind: managed

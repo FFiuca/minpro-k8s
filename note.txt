@@ -1,2 +1,11 @@
 - when spaming refresh in firts deploy (some pod has error), sometime got return error and success, it indicates browser hit different pod
 -
+
+How to add azure context and connect to your account :
+1. az login
+2. az aks create --name keyvault-demo-cluster -g keyvault-demo --node-count 1 --enable-addons azure-keyvault-secrets-provider --enable-oidc-issuer --enable-workload-identity  --generate-ssh-keys
+3. az aks update -n keyvault-demo-cluster -g keyvault-demo --enable-disk-driver --enable-file-driver --enable-blob-driver --enable-snapshot-controller
+4. go to aks dashboard, select then click connect
+5. az account set --subscription c11b5f1e-a20b-4b57-b31e-3d91076a07b1
+6. az aks get-credentials --resource-group keyvault-demo --name keyvault-demo-cluster --overwrite-existing
+7. change your context docker to your aks name and kubectl command will use az aks

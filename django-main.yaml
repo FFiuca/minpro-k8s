@@ -265,7 +265,7 @@ metadata:
   labels:
     app: django
 spec:
-  type: LoadBalancer
+  type: ClusterIP
   selector:
     app: django-mysql
   ports:
@@ -350,18 +350,19 @@ metadata:
   labels:
     app: django
 spec:
-  type: NodePort
+  # type: NodePort
+  type: LoadBalancer # for az
   selector:
     app: django-app
   ports:
   - name: port-app
     port: 8001
     targetPort: 8001
-    nodePort: 30003
+    # nodePort: 30003
   - name: port-nginx
     port: 80
     targetPort: 80
-    nodePort: 30004
+    # nodePort: 30004
   # - name: port-mysql
 #   port: 3306
 #   targetPort: 3306

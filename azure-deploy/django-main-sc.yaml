@@ -1,0 +1,414 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: django
+  labels:
+    app: django
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: django-mysql-config-map
+  namespace: django
+  labels:
+    app: django
+data:
+  MYSQL_DATABASE: django_ecommerce
+  MYSQL_USER: admin
+  # MYSQL_ROOT_PASSWORD: root
+  # MYSQL_PASSWORD: admin
+  MYSQL_PORT: '3306'
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: django-mysql-secret
+  namespace: django
+  labels:
+    app: django
+type: Opaque
+stringData:
+  MYSQL_ROOT_PASSWORD: root
+  MYSQL_PASSWORD: admin
+
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: django-redis-config-map
+  namespace: django
+  labels:
+    app: django
+data:
+  REDIS_PORT: '6379'
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: django-app-config-map
+  namespace: django
+  labels:
+    app: django
+data:
+  APP_PORT: '8001'
+  # DB_HOST: 0.0.0.0
+  DB_HOST: django-mysql-service.django.svc.cluster.local
+  DB_PORT: '3306'
+  DB_ROOT_USERNAME: root
+  DB_USERNAME: admin
+  # DB_PASSWORD: root
+  DB_DATABASE: django_ecommerce
+  REDIS_HOST: django-mysql-service.django.svc.cluster.local
+  REDIS_PORT: '6379'
+  EMAIL_HOST: 'smtp.gmail.com'
+  EMAIL_PORT: '587'
+  EMAIL_HOST_USER: 'fiuca.gree.id@gmail.com'
+  # EMAIL_HOST_PASSWORD: 'fepznjrmriuivxef'
+  EMAIL_USE_TLS: 'True'
+  EMAIL_FROM_ADDRESS: 'fiuca.gree.id@gmail.com'
+  EMAIL_FROM_NAME: "fiuca"
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: django-app-secret
+  namespace: django
+  labels:
+    app: django
+type: Opaque
+stringData:
+  EMAIL_HOST_PASSWORD: 'fepznjrmriuivxef'
+  DB_PASSWORD: root
+
+# not success yet. must enable csi-hostpath-driver  and  volumesnapshots minikube addons
+# ---
+# apiVersion: storage.k8s.io/v1
+# kind: StorageClass
+# metadata:
+#   name: django-sc
+#   namespace: django
+# provisioner: hostpath.csi.k8s.io
+# reclaimPolicy: Retain
+# volumeBindingMode: WaitForFirstConsumer
+# allowVolumeExpansion: true
+
+# use when use storage class
+# ---
+# apiVersion: v1
+# kind: PersistentVolumeClaim
+# metadata:
+#   name: django-mysql-pv-claim
+#   namespace: django
+#   labels:
+#     app: django
+# spec:
+#   resources:
+#     requests:
+#       storage: 1Gi
+#   storageClassName: django-sc
+#   accessModes:
+#   - ReadWriteOnce
+
+
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: django-mysql-pv
+  namespace: django
+  labels:
+    app: django
+spec:
+  accessModes:
+  - ReadWriteOnce
+  capacity:
+    storage: 1Gi
+  hostPath:
+    path: /mysql.data
+
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: django-redis-pv
+  namespace: django
+  labels:
+    app: django
+spec:
+  accessModes:
+  - ReadWriteOnce
+  capacity:
+    storage: 1Gi
+  hostPath:
+    path: /redis/data
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: django-redis-pv-claim
+  namespace: django
+  labels:
+    app: django
+spec:
+  resources:
+    requests:
+      storage: 200Mi
+  volumeMode: Filesystem
+  accessModes:
+  - ReadWriteOnce
+
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: django-app-pv
+  namespace: django
+  labels:
+    app: django
+spec:
+  accessModes:
+  - ReadWriteOnce
+  capacity:
+    storage: 3Gi
+  hostPath:
+    path: /www/app
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: django-app-pv-claim
+  namespace: django
+  labels:
+    app: django
+spec:
+  resources:
+    requests:
+      storage: 1Gi
+  volumeMode: Filesystem
+  accessModes:
+  - ReadWriteOnce
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: django-app-deployment
+  namespace: django
+  labels:
+    app: django
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: django-app
+  template:
+    metadata:
+      name: django-app-pode
+      labels:
+        app: django-app
+    spec:
+      volumes:
+      # - name: volume-mysql
+      #   persistentVolumeClaim:
+      #     claimName: django-mysql-pv-claim
+      # - name: volume-redis
+      #   persistentVolumeClaim:
+      #     claimName: django-redis-pv-claim
+      - name: volume-django
+        persistentVolumeClaim:
+          claimName: django-app-pv-claim
+      - name: volume-curl
+        emptyDir: {}
+      containers:
+      - name: mycurl
+        image: ffiuca/mycurl
+        # - name: django-redis-container
+      #   image: redis:7.2.4-alpine
+      #   ports:
+      #   - containerPort: 6379
+      #   envFrom:
+      #   - configMapRef:
+      #       name: django-redis-config-map
+      #   volumeMounts:
+      #   - mountPath: /usr/local/etc/redis
+      #     name: volume-redis
+      - name: nginx
+        image: nginx:stable-alpine3.17-slim
+        ports:
+        - containerPort: 80
+      - name: django-app-container
+        image: ffiuca/django-ecommerce
+        ports:
+        - containerPort: 8001
+        envFrom:
+        - configMapRef:
+            name: django-app-config-map
+        - secretRef:
+            name: django-app-secret
+        volumeMounts:
+        - mountPath: /app
+          name: volume-django
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: django-mysql-service
+  namespace: django
+  labels:
+    app: django
+spec:
+  type: ClusterIP
+  selector:
+    app: django-mysql
+  ports:
+  - name: port-mysql
+    port: 3306
+    targetPort: 3306
+    # nodePort: 30001
+  - name: port-redis
+    port: 6379
+    targetPort: 6379
+    # nodePort: 30002
+
+
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: django-mysql-statefulset
+  namespace: django
+  labels:
+    app: django
+spec:
+  selector:
+    matchLabels:
+      app: django-mysql
+  serviceName: django-mysql-service
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: django-mysql
+    spec:
+      containers:
+      - name: django-mysql-container
+        image: mysql
+        ports:
+        - containerPort: 3306
+        envFrom:
+        - configMapRef:
+            name: django-mysql-config-map
+        - secretRef:
+            name: django-mysql-secret
+        volumeMounts:
+        - mountPath: /var/lib/mysql
+          name: django-mysql-pv-claim
+      - name: django-redis-container
+        image: redis:7.2.4-alpine
+        ports:
+        - containerPort: 6379
+        envFrom:
+        - configMapRef:
+            name: django-redis-config-map
+        volumeMounts:
+        - mountPath: /usr/local/etc/redis
+          name: django-redis-pv-claim
+  volumeClaimTemplates:
+  - metadata:
+      name: django-mysql-pv-claim # if not exist will create automatically
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      # storageClassName: django-sc # use when use storage class
+      volumeMode: Filesystem
+      resources:
+        requests:
+          storage: 1Gi
+  - metadata:
+      name: django-redis-pv-claim
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      # storageClassName: django-sc # use when use storage class
+      volumeMode: Filesystem
+      resources:
+        requests:
+          storage: 250Mi
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: django-app-service # will use for host name in container communications. not use container id again like in docker.
+  namespace: django
+  labels:
+    app: django
+spec:
+  # type: NodePort
+  type: LoadBalancer # for az
+  selector:
+    app: django-app
+  ports:
+  - name: port-app
+    port: 8001
+    targetPort: 8001
+    # nodePort: 30003
+  - name: port-nginx
+    port: 80
+    targetPort: 80
+    # nodePort: 30004
+  # - name: port-mysql
+#   port: 3306
+#   targetPort: 3306
+#   nodePort: 30001
+# - name: port-redis
+#   port: 6379
+#   targetPort: 6379
+#   nodePort: 30002
+
+# ---
+# apiVersion: apps/v1
+# kind: StatefulSet
+# metadata:
+#   name: django-app-statefulset
+#   namespace: django
+# spec:
+#   selector:
+#     matchLabels:
+#       app: django-app
+#   serviceName: django-app-service
+#   replicas: 2
+#   template:
+#     metadata:
+#       labels:
+#         app: django-app
+#     spec:
+#       containers:
+#       - name: django-mysql-container
+#         image: mysql
+#         ports:
+#         - containerPort: 3306
+#         envFrom:
+#         - configMapRef:
+#             name: django-mysql-config-map
+#         - secretRef:
+#             name: django-mysql-secret
+#         volumeMounts:
+#         - mountPath: /var/lib/mysql
+#           name: django-mysql-pv2-claim
+#   volumeClaimTemplates:
+#   - metadata:
+#       name: django-mysql-pv2-claim
+#     spec:
+#       volumeMode: Filesystem
+#       accessModes: ["ReadWriteMany"]
+#       resources:
+#         requests:
+#           storage: 250Mi
+

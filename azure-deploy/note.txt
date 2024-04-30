@@ -1,0 +1,4 @@
+db auth:
+djangoecommerce01
+allinone-01
+django-ecommerce.mysql.database.azure.com

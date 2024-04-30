@@ -56,13 +56,13 @@ metadata:
 data:
   APP_PORT: '8001'
   # DB_HOST: 0.0.0.0
-  DB_HOST: django-mysql-service.django.svc.cluster.local
-  DB_PORT: '3306'
-  DB_ROOT_USERNAME: root
-  DB_USERNAME: admin
+  DB_HOST: django-mysql-external-service.django.svc.cluster.local
+  DB_PORT: '3306' # because using URL connection
+  DB_ROOT_USERNAME: djangoecommerce01
+  DB_USERNAME: djangoecommerce01
   # DB_PASSWORD: root
   DB_DATABASE: django_ecommerce
-  REDIS_HOST: django-mysql-service.django.svc.cluster.local
+  REDIS_HOST: django-storage-service.django.svc.cluster.local
   REDIS_PORT: '6379'
   EMAIL_HOST: 'smtp.gmail.com'
   EMAIL_PORT: '587'
@@ -83,37 +83,39 @@ metadata:
 type: Opaque
 stringData:
   EMAIL_HOST_PASSWORD: 'fepznjrmriuivxef'
-  DB_PASSWORD: root
+  DB_PASSWORD: allinone-01
 
-# not success yet. must enable csi-hostpath-driver  and  volumesnapshots minikube addons
-# ---
-# apiVersion: storage.k8s.io/v1
-# kind: StorageClass
-# metadata:
-#   name: django-sc
-#   namespace: django
-# provisioner: hostpath.csi.k8s.io
-# reclaimPolicy: Retain
-# volumeBindingMode: WaitForFirstConsumer
-# allowVolumeExpansion: true
+---
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: django-sc
+  namespace: django
+  labels:
+    app: django
+provisioner: disk.csi.azure.com # from kubect get sc -> provisioner
+reclaimPolicy: Retain
+volumeBindingMode: WaitForFirstConsumer
+allowVolumeExpansion: true
+parameters:
+  storageaccounttype: Premium_LRS
+  kind: managed
 
-# use when use storage class
-# ---
-# apiVersion: v1
-# kind: PersistentVolumeClaim
-# metadata:
-#   name: django-mysql-pv-claim
-#   namespace: django
-#   labels:
-#     app: django
-# spec:
-#   resources:
-#     requests:
-#       storage: 1Gi
-#   storageClassName: django-sc
-#   accessModes:
-#   - ReadWriteOnce
-
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: django-redis-pv-claim
+  namespace: django
+  labels:
+    app: django
+spec:
+  resources:
+    requests:
+      storage: 200Mi
+  storageClassName: django-sc
+  accessModes:
+  - ReadWriteOnce
 
 ---
 apiVersion: v1
@@ -130,38 +132,6 @@ spec:
     storage: 1Gi
   hostPath:
     path: /mysql.data
-
----
-apiVersion: v1
-kind: PersistentVolume
-metadata:
-  name: django-redis-pv
-  namespace: django
-  labels:
-    app: django
-spec:
-  accessModes:
-  - ReadWriteOnce
-  capacity:
-    storage: 1Gi
-  hostPath:
-    path: /redis/data
-
----
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: django-redis-pv-claim
-  namespace: django
-  labels:
-    app: django
-spec:
-  resources:
-    requests:
-      storage: 200Mi
-  volumeMode: Filesystem
-  accessModes:
-  - ReadWriteOnce
 
 ---
 apiVersion: v1
@@ -245,6 +215,7 @@ spec:
         - containerPort: 80
       - name: django-app-container
         image: ffiuca/django-ecommerce
+        imagePullPolicy: Always
         ports:
         - containerPort: 8001
         envFrom:
@@ -260,7 +231,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: django-mysql-service
+  name: django-storage-service
   namespace: django
   labels:
     app: django
@@ -278,6 +249,24 @@ spec:
     targetPort: 6379
     # nodePort: 30002
 
+# External to connect to the mysql
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: django-mysql-external-service
+  namespace: django
+  labels:
+    app: django
+spec:
+  selector:
+    app: django-mysql # actually not required
+  type: ExternalName
+  externalName: django-ecommerce.mysql.database.azure.com
+  ports:
+  - port: 80
+
+
 
 ---
 apiVersion: apps/v1
@@ -291,7 +280,7 @@ spec:
   selector:
     matchLabels:
       app: django-mysql
-  serviceName: django-mysql-service
+  serviceName: django-storage-service
   replicas: 1
   template:
     metadata:
@@ -311,6 +300,38 @@ spec:
         volumeMounts:
         - mountPath: /var/lib/mysql
           name: django-mysql-pv-claim
+  volumeClaimTemplates:
+  - metadata:
+      name: django-mysql-pv-claim # if not exist will create automatically
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      # storageClassName: django-sc # use when use storage class
+      volumeMode: Filesystem
+      resources:
+        requests:
+          storage: 1Gi
+
+# REDIS
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: django-redis-statefulset
+  namespace: django
+  labels:
+    app: django
+spec:
+  selector:
+    matchLabels:
+      app: django-redis-app
+  serviceName: django-storage-service
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: django-redis-app
+    spec:
+      containers:
       - name: django-redis-container
         image: redis:7.2.4-alpine
         ports:
@@ -323,23 +344,13 @@ spec:
           name: django-redis-pv-claim
   volumeClaimTemplates:
   - metadata:
-      name: django-mysql-pv-claim # if not exist will create automatically
-    spec:
-      accessModes: ["ReadWriteOnce"]
-      # storageClassName: django-sc # use when use storage class
-      volumeMode: Filesystem
-      resources:
-        requests:
-          storage: 1Gi
-  - metadata:
       name: django-redis-pv-claim
     spec:
       accessModes: ["ReadWriteOnce"]
-      # storageClassName: django-sc # use when use storage class
-      volumeMode: Filesystem
       resources:
         requests:
           storage: 250Mi
+
 
 ---
 apiVersion: v1
@@ -372,43 +383,4 @@ spec:
 #   targetPort: 6379
 #   nodePort: 30002
 
-# ---
-# apiVersion: apps/v1
-# kind: StatefulSet
-# metadata:
-#   name: django-app-statefulset
-#   namespace: django
-# spec:
-#   selector:
-#     matchLabels:
-#       app: django-app
-#   serviceName: django-app-service
-#   replicas: 2
-#   template:
-#     metadata:
-#       labels:
-#         app: django-app
-#     spec:
-#       containers:
-#       - name: django-mysql-container
-#         image: mysql
-#         ports:
-#         - containerPort: 3306
-#         envFrom:
-#         - configMapRef:
-#             name: django-mysql-config-map
-#         - secretRef:
-#             name: django-mysql-secret
-#         volumeMounts:
-#         - mountPath: /var/lib/mysql
-#           name: django-mysql-pv2-claim
-#   volumeClaimTemplates:
-#   - metadata:
-#       name: django-mysql-pv2-claim
-#     spec:
-#       volumeMode: Filesystem
-#       accessModes: ["ReadWriteMany"]
-#       resources:
-#         requests:
-#           storage: 250Mi
 

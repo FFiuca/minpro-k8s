@@ -1,0 +1,91 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: django-app-container-job
+  namespace: django
+  labels:
+    app: django
+spec:
+  ttlSecondsAfterFinished: 3600
+  parallelism: 1
+  backoffLimit: 2
+  template:
+    spec:
+      restartPolicy: Never
+      volumes:
+      - name: volume-django
+        persistentVolumeClaim:
+          claimName: django-app-pv-claim
+      containers:
+      - name: test
+        image: ffiuca/django-ecommerce:only-run.v1
+        imagePullPolicy: Always
+        envFrom:
+        - configMapRef:
+            name: django-app-config-map
+        - secretRef:
+            name: django-app-secret
+        volumeMounts:
+        - mountPath: /django
+          name: volume-django
+        command: ['sh', '-c', 'cd /app/django && mkdir zz']
+      - name: makemigrations-project-container-job
+        image: ffiuca/django-ecommerce:only-run.v1
+        imagePullPolicy: Always
+        envFrom:
+        - configMapRef:
+            name: django-app-config-map
+        - secretRef:
+            name: django-app-secret
+        volumeMounts:
+        - mountPath: /django
+          name: volume-django
+        command: ['sh', '-c', 'cd /app/django && python3 manage.py makemigrations --noinput']
+      - name: makemigrations-app-container-job
+        image: ffiuca/django-ecommerce:only-run.v1
+        imagePullPolicy: Always
+        envFrom:
+        - configMapRef:
+            name: django-app-config-map
+        - secretRef:
+            name: django-app-secret
+        volumeMounts:
+        - mountPath: /django
+          name: volume-django
+        command: ['sh', '-c', 'cd /app/django && python3 manage.py makemigrations master notification order product store transaction user --noinput && sleep 600']
+      - name: migrate-container-job
+        image: ffiuca/django-ecommerce:only-run.v1
+        imagePullPolicy: Always
+        envFrom:
+        - configMapRef:
+            name: django-app-config-map
+        - secretRef:
+            name: django-app-secret
+        volumeMounts:
+        - mountPath: /django
+          name: volume-django
+        command: ['sh', '-c', 'cd /app/django && python3 manage.py migrate --noinput']
+      - name: loaddata-container-job
+        image: ffiuca/django-ecommerce:only-run.v1
+        imagePullPolicy: Always
+        envFrom:
+        - configMapRef:
+            name: django-app-config-map
+        - secretRef:
+            name: django-app-secret
+        volumeMounts:
+        - mountPath: /django
+          name: volume-django
+        command: ['sh', '-c', 'cd /app/django && python3 manage.py loaddata master/seeder/master-all.json']
+      - name: collectstatic-container-job
+        image: ffiuca/django-ecommerce:only-run.v1
+        imagePullPolicy: Always
+        envFrom:
+        - configMapRef:
+            name: django-app-config-map
+        - secretRef:
+            name: django-app-secret
+        volumeMounts:
+        - mountPath: /django
+          name: volume-django
+        command: ['sh', '-c', 'cd /app/django && python3 manage.py collectstatic --noinput']

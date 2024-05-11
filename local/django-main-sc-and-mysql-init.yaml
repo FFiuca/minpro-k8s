@@ -1,3 +1,5 @@
+## IT IS STILL ERROR DUE MIGRATION FILES IS NOT GENERATED WHEN INIT CONTAINERS IS SUCCESS
+
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -149,7 +151,7 @@ spec:
   capacity:
     storage: 3Gi
   hostPath:
-    path: /www/app
+    path: /www/app2
 
 ---
 apiVersion: v1
@@ -201,22 +203,22 @@ spec:
       containers:
       - name: mycurl
         image: ffiuca/mycurl
-        # - name: django-redis-container
-      #   image: redis:7.2.4-alpine
-      #   ports:
-      #   - containerPort: 6379
-      #   envFrom:
-      #   - configMapRef:
-      #       name: django-redis-config-map
-      #   volumeMounts:
-      #   - mountPath: /usr/local/etc/redis
-      #     name: volume-redis
+        #   image: redis:7.2.4-alpine
       - name: nginx
+        # - name: django-redis-container
+        #   ports:
+        #   - containerPort: 6379
+        #   envFrom:
+        #   - configMapRef:
+        #       name: django-redis-config-map
+        #   volumeMounts:
+        #   - mountPath: /usr/local/etc/redis
+        #     name: volume-redis
         image: nginx:stable-alpine3.17-slim
         ports:
         - containerPort: 80
       - name: django-app-container
-        image: ffiuca/django-ecommerce
+        image: ffiuca/django-ecommerce:only-run.v1 # with this image, running test is error because we split migrations and runserver in different command. try with job
         imagePullPolicy: Always
         ports:
         - containerPort: 8001
@@ -228,6 +230,29 @@ spec:
         volumeMounts:
         - mountPath: /app
           name: volume-django
+      # only run in first time until success
+      initContainers:
+      - name: init-django-app-container
+        image: ffiuca/django-ecommerce:only-run.v1
+        command:
+        - /bin/bash
+        - -c
+        - |
+          python3 manage.py makemigrations --noinput &&
+          python3 manage.py makemigrations master notification order product store transaction user --noinput &&
+          python3 manage.py migrate --noinput &&
+          python3 manage.py loaddata master/seeder/master-all.json &&
+          python3 manage.py collectstatic --noinput
+        restartPolicy: Always
+        imagePullPolicy: Always
+        envFrom:
+        - configMapRef:
+            name: django-app-config-map
+        - secretRef:
+            name: django-app-secret
+        volumeMounts:
+        - mountPath: /app
+          name: volume-django # important to makesure same volume with container app, because it is way to sync
 
 ---
 apiVersion: v1

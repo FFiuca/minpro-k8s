@@ -1,11 +1,5 @@
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: django
-  labels:
-    app: django
+# SYNC THROUGH VOLUME NOT SUCCESS YET. PREFER USE ffiuca/django-ecommerce
 
----
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -61,7 +55,7 @@ data:
   DB_ROOT_USERNAME: root
   DB_USERNAME: root
   # DB_PASSWORD: root
-  DB_DATABASE: django_ecommerce2
+  DB_DATABASE: django_ecommerce
   REDIS_HOST: django-redis-service.django.svc.cluster.local
   REDIS_PORT: '6379'
   EMAIL_HOST: 'smtp.gmail.com'
@@ -93,7 +87,8 @@ metadata:
   namespace: django
   labels:
     app: django
-provisioner: k8s.io/minikube-hostpath # from kubect get sc -> provisioner
+# provisioner: k8s.io/minikube-hostpath # from kubect get sc -> provisioner
+provisioner: docker.io/hostpath
 reclaimPolicy: Retain
 volumeBindingMode: WaitForFirstConsumer
 allowVolumeExpansion: true
@@ -141,15 +136,16 @@ kind: PersistentVolume
 metadata:
   name: django-app-pv
   namespace: django
-  labels:
-    app: django
 spec:
+  # storageClassName: standard
+  storageClassName: hostpath
   accessModes:
-  - ReadWriteOnce
+  - ReadWriteMany
   capacity:
-    storage: 3Gi
+    storage: 10Gi
   hostPath:
-    path: /www/app
+    # path: /data/app # by my workdir=/app/django on this image. so /app will be entrypoint and /django will setting at container mount
+    path: /mnt/data
 
 ---
 apiVersion: v1
@@ -157,15 +153,17 @@ kind: PersistentVolumeClaim
 metadata:
   name: django-app-pv-claim
   namespace: django
-  labels:
-    app: django
 spec:
   resources:
     requests:
       storage: 1Gi
-  volumeMode: Filesystem
+  # volumeMode: Filesystem
+  # storageClassName: "" # it important to bounding into wanted pv
+  # storageClassName: standard
+  storageClassName: hostpath
+  volumeName: django-app-pv
   accessModes:
-  - ReadWriteOnce
+  - ReadWriteMany
 
 ---
 apiVersion: apps/v1
@@ -176,7 +174,7 @@ metadata:
   labels:
     app: django
 spec:
-  replicas: 3
+  replicas: 1
   selector:
     matchLabels:
       app: django-app
@@ -216,7 +214,7 @@ spec:
         ports:
         - containerPort: 80
       - name: django-app-container
-        image: ffiuca/django-ecommerce
+        image: ffiuca/django-ecommerce:only-run.v1
         imagePullPolicy: Always
         ports:
         - containerPort: 8001
@@ -226,7 +224,23 @@ spec:
         - secretRef:
             name: django-app-secret
         volumeMounts:
-        - mountPath: /app
+        - mountPath: /test
+          name: volume-django
+      - name: django-app-debug
+        image: ffiuca/django-ecommerce:only-run.v1
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8002
+        env:
+        - name: APP_PORT
+          value: '8002' # this is priority than env file from docker
+        envFrom:
+        - configMapRef:
+            name: django-app-config-map
+        - secretRef:
+            name: django-app-secret
+        volumeMounts:
+        - mountPath: /test
           name: volume-django
 
 ---
@@ -276,8 +290,9 @@ metadata:
     app: django
 spec:
   type: ExternalName
-  # externalName: kubernetes.docker.internal
-  externalName: host.minikube.internal
+  # externalName: kubernetes.docker.internal # THIS IS FOR DOKCER DRIVER/CONTEXT
+  externalName: host.docker.internal # THIS IS FOR DOKCER DRIVER/CONTEXT
+  # externalName: host.minikube.internal
   ports:
   - port: 3306
 
@@ -293,8 +308,8 @@ metadata:
     app: django
 spec:
   type: ExternalName
-  # externalName: kubernetes.docker.internal
-  externalName: host.minikube.internal
+  externalName: kubernetes.docker.internal
+  # externalName: host.minikube.internal
   ports:
   - port: 80
 

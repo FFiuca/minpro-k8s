@@ -1,0 +1,125 @@
+# PersistentVolume definition
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: django-app-pv2
+  namespace: django # Namespace for the job
+spec:
+  capacity:
+    storage: 10Gi # Storage capacity
+  accessModes:
+  - ReadWriteOnce # Access mode
+  hostPath:
+    path: /data/django # Host path where the data will be stored
+# PersistentVolumeClaim definition
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: django-app-pv-claim2
+  namespace: django # Namespace for the job
+spec:
+  accessModes:
+  - ReadWriteOnce # Access mode
+  storageClassName: "" # Empty string indicates no specific storage class
+  resources:
+    requests:
+      storage: 1Gi # Requested storage capacity
+# StorageClass definition
+---
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: standard2 # Storage class name
+provisioner: kubernetes.io/host-path # Provisioner used to create the PV
+# Job definition
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: django-app-container-job2
+  namespace: django # Namespace for the job
+spec:
+  ttlSecondsAfterFinished: 3600 # Time-to-live for completed jobs
+  parallelism: 1 # Number of pods to run in parallel
+  backoffLimit: 2 # Maximum number of retries
+  template:
+    spec:
+      restartPolicy: Never # Container restart policy
+      volumes:
+      - name: volume-django # Volume name
+        persistentVolumeClaim:
+          claimName: django-app-pv-claim2 # Reference to the PVC
+      containers:
+      - name: test1 # Container name
+        image: ffiuca/django-ecommerce:only-run.v1 # Docker image to use
+        imagePullPolicy: Always # Pull policy for the image
+        # envFrom:
+        # - configMapRef:
+        #     name: django-app-config-map # ConfigMap containing environment variables
+        # - secretRef:
+        #     name: django-app-secret # Secret containing sensitive data
+        volumeMounts:
+        - mountPath: /django # Mount path in the container
+          name: volume-django # Name of the volume
+        command: ['sh', '-c', 'echo "This is test1" > /django/test.txt && sleep 600'] # Command to create a file in the shared volume
+      - name: test2 # Container name
+        image: ffiuca/django-ecommerce:only-run.v1 # Docker image to use
+        imagePullPolicy: Always # Pull policy for the image
+        # envFrom:
+        # - configMapRef:
+        #     name: django-app-config-map # ConfigMap containing environment variables
+        # - secretRef:
+        #     name: django-app-secret # Secret containing sensitive data
+        volumeMounts:
+        - mountPath: /django # Mount path in the container
+          name: volume-django # Name of the volume
+        command: ['sh', '-c', 'echo "This is test2" > /django/test.txt && sleep 600'] # Command to create a file in the shared volume
+      - name: test3 # Container name
+        image: ffiuca/django-ecommerce:only-run.v1 # Docker image to use
+        imagePullPolicy: Always # Pull policy for the image
+        # envFrom:
+        # - configMapRef:
+        #     name: django-app-config-map # ConfigMap containing environment variables
+        # - secretRef:
+        #     name: django-app-secret # Secret containing sensitive data
+        volumeMounts:
+        - mountPath: /django # Mount path in the container
+          name: volume-django # Name of the volume
+        command: ['sh', '-c', 'echo "This is test3" > /django/test.txt && sleep 600'] # Command to create a file in the shared volume
+      - name: test4 # Container name
+        image: ffiuca/django-ecommerce:only-run.v1 # Docker image to use
+        imagePullPolicy: Always # Pull policy for the image
+        # envFrom:
+        # - configMapRef:
+        #     name: django-app-config-map # ConfigMap containing environment variables
+        # - secretRef:
+        #     name: django-app-secret # Secret containing sensitive data
+        volumeMounts:
+        - mountPath: /django # Mount path in the container
+          name: volume-django # Name of the volume
+        command: ['sh', '-c', 'echo "This is test4" > /django/test.txt && sleep 600'] # Command to create a file in the shared volume
+      - name: test5 # Container name
+        image: ffiuca/django-ecommerce:only-run.v1 # Docker image to use
+        imagePullPolicy: Always # Pull policy for the image
+        # envFrom:
+        # - configMapRef:
+        #     name: django-app-config-map # ConfigMap containing environment variables
+        # - secretRef:
+        #     name: django-app-secret # Secret containing sensitive data
+        volumeMounts:
+        - mountPath: /django # Mount path in the container
+          name: volume-django # Name of the volume
+        command: ['sh', '-c', 'echo "This is test5" > /django/test.txt && sleep 600'] # Command to create a file in the shared volume
+      - name: test6 # Container name
+        image: ffiuca/django-ecommerce:only-run.v1 # Docker image to use
+        imagePullPolicy: Always # Pull policy for the image
+        # envFrom:
+        # - configMapRef:
+        #     name: django-app-config-map # ConfigMap containing environment variables
+        # - secretRef:
+        #     name: django-app-secret # Secret containing sensitive data
+        volumeMounts:
+        - mountPath: /django # Mount path in the container
+          name: volume-django # Name of the volume
+        command: ['sh', '-c', 'echo "This is test6" > /django/test.txt && sleep 600'] # Command to create a file in the shared volume

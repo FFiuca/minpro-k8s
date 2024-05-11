@@ -31,3 +31,6 @@ az mysql flexible-server connect -h django-ecommerce.mysql.database.azure.com -u
 SET sql_generate_invisible_primary_key=OFF; or in server parameters, set it off
 SELECT @@sql_generate_invisible_primary_key;
 
+PVC
+- When you specify a volume in a Deployment's pod template, like in your YAML where you define volume-django, it's the same volume shared across all replicas. In your case, all replicas of the Django application container will mount the same PVC (django-app-pv-claim) to access persistent storage.
+
